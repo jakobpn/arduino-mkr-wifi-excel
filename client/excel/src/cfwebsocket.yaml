@@ -1,0 +1,103 @@
+name: CF Web Socket
+description: Streaming custom function using web sockets
+host: EXCEL
+api_set: {}
+script:
+  content: >
+    var invocations: Array<CustomFunctions.StreamingInvocation<string>> = [];
+
+
+    /** @CustomFunction */
+
+    function message(invocation: CustomFunctions.StreamingInvocation<string>):
+    void {
+      invocations.push(invocation);
+      if (!socket) {
+        connect();
+      }
+      //invocation.setResult(result);
+      invocation.onCanceled = () => {};
+    }
+
+
+    var socket;
+
+
+    const connectionUrl = "wss://b3a49641.ngrok.io/ws";
+
+
+    function updateState() {
+      if (socket) {
+        switch (socket.readyState) {
+          case WebSocket.CLOSED:
+            console.log("Closed");
+            break;
+          case WebSocket.CLOSING:
+            console.log("Closing...");
+            break;
+          case WebSocket.CONNECTING:
+            console.log("Connecting...");
+            break;
+          case WebSocket.OPEN:
+            console.log("Open");
+            break;
+          default:
+            console.log("Unknown WebSocket State: " + socket.readyState);
+            break;
+        }
+      }
+    }
+
+
+    function close() {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert("socket not connected");
+      }
+      socket.close(1000, "Closing from client");
+    }
+
+
+    function send(message: string) {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert("socket not connected");
+      }
+      socket.send(message);
+      console.log("Client -> Server: " + message);
+    }
+
+
+    function connect() {
+      console.log("Connecting");
+      socket = new WebSocket(connectionUrl);
+      socket.onopen = function(event) {
+        updateState();
+        console.log("Connection opened");
+      };
+      socket.onclose = function(event) {
+        updateState();
+        console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
+      };
+      socket.onerror = updateState;
+      socket.onmessage = function(event) {
+        console.log("Server -> Client" + event.data);
+        invocations.forEach((invocation) => {
+          invocation.setResult(event.data);
+        });
+      };
+    }
+  language: typescript
+libraries: |
+  https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+  @types/office-js
+
+  office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+  office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+  core-js@2.4.1/client/core.min.js
+  @types/core-js
+
+  @microsoft/office-js-helpers@0.7.4/dist/office.helpers.min.js
+  @microsoft/office-js-helpers@0.7.4/dist/office.helpers.d.ts
+
+  jquery@3.1.1
+  @types/jquery@3.3.1
